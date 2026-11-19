@@ -1,0 +1,6 @@
+{
+  "name": "Portal Penilaian Madrasah Diniyah Ma'hadul Muta'allimin I",
+  "description": "Sistem portal input nilai santri yang sederhana, responsif, dan aman untuk ustaz serta dashboard administrasi penilaian Madrasah Diniyah Ma'hadul Muta'allimin I.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

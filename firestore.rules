@@ -1,0 +1,408 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Pillar 1 / Global Safety Net: Default-Deny Catch-All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ==================== GLOBAL PRIMITIVES ====================
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isBootstrappedAdmin() {
+      return isSignedIn() && request.auth.token.email == 'aripsyaifudin11@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || (
+        isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidString(val, minLen, maxLen) {
+      return val is string && val.size() >= minLen && val.size() <= maxLen;
+    }
+
+    function isValidTimestamp(val) {
+      return val is timestamp && val == request.time;
+    }
+
+    function isValidOptionalTimestampOrNull(val) {
+      return val == null || val is timestamp;
+    }
+
+    // ==================== ENTITY VALIDATION BLUEPRINTS ====================
+    function isValidSettings(data) {
+      return data.keys().hasAll(['schoolName', 'academicYear', 'semester', 'updatedAt'])
+        && data.keys().hasOnly([
+          'schoolName', 'address', 'logoUrl', 'reportHeader',
+          'headmasterName', 'headmasterNip', 'academicYear',
+          'semester', 'activePeriodId', 'allowUstazReopenRequest', 'updatedAt'
+        ])
+        && isValidString(data.schoolName, 2, 150)
+        && (!('address' in data) || isValidString(data.address, 0, 300))
+        && (!('logoUrl' in data) || isValidString(data.logoUrl, 0, 2000))
+        && (!('reportHeader' in data) || isValidString(data.reportHeader, 0, 400))
+        && (!('headmasterName' in data) || isValidString(data.headmasterName, 0, 120))
+        && (!('headmasterNip' in data) || isValidString(data.headmasterNip, 0, 50))
+        && isValidString(data.academicYear, 4, 20)
+        && data.academicYear.matches('^[0-9]{4}/[0-9]{4}$')
+        && (data.semester == 'Ganjil' || data.semester == 'Genap')
+        && (!('activePeriodId' in data) || isValidString(data.activePeriodId, 0, 128))
+        && (!('allowUstazReopenRequest' in data) || data.allowUstazReopenRequest is bool)
+        && isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidAdminSecurity(data) {
+      return data.keys().hasAll(['passwordHash', 'passwordSalt', 'mustChangePassword', 'updatedAt'])
+        && data.keys().hasOnly(['passwordHash', 'passwordSalt', 'mustChangePassword', 'updatedAt'])
+        && isValidString(data.passwordHash, 64, 128)
+        && data.passwordHash.matches('^[a-f0-9]+$')
+        && isValidString(data.passwordSalt, 16, 64)
+        && data.mustChangePassword is bool
+        && isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidAdminUser(data) {
+      return data.keys().hasAll(['email', 'name', 'role', 'createdAt'])
+        && data.keys().hasOnly(['email', 'name', 'role', 'createdAt'])
+        && isValidString(data.email, 3, 200)
+        && isValidString(data.name, 1, 120)
+        && data.role == 'admin'
+        && data.createdAt is timestamp;
+    }
+
+    function isValidPeriod(data) {
+      return data.keys().hasAll([
+          'name', 'academicYear', 'semester', 'startDate', 'endDate',
+          'isActive', 'allowReopen', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'name', 'academicYear', 'semester', 'startDate', 'endDate',
+          'isActive', 'allowReopen', 'createdAt', 'updatedAt'
+        ])
+        && isValidString(data.name, 2, 120)
+        && isValidString(data.academicYear, 4, 20)
+        && data.academicYear.matches('^[0-9]{4}/[0-9]{4}$')
+        && (data.semester == 'Ganjil' || data.semester == 'Genap')
+        && isValidString(data.startDate, 10, 20)
+        && data.startDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && isValidString(data.endDate, 10, 20)
+        && data.endDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && data.isActive is bool
+        && data.allowReopen is bool
+        && data.createdAt is timestamp
+        && isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidClassRoom(data) {
+      return data.keys().hasAll(['name', 'level', 'orderIndex', 'isActive', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['name', 'level', 'orderIndex', 'isActive', 'createdAt', 'updatedAt'])
+        && isValidString(data.name, 1, 60)
+        && isValidString(data.level, 0, 40)
+        && data.orderIndex is number
+        && data.orderIndex >= 0 && data.orderIndex <= 1000
+        && data.isActive is bool
+        && data.createdAt is timestamp
+        && isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidSubject(data) {
+      return data.keys().hasAll(['name', 'classIds', 'isActive', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['name', 'classIds', 'isActive', 'createdAt', 'updatedAt'])
+        && isValidString(data.name, 1, 100)
+        && data.classIds is list
+        && data.classIds.size() <= 50
+        && (data.classIds.size() == 0 || isValidId(data.classIds[0]))
+        && data.isActive is bool
+        && data.createdAt is timestamp
+        && isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidUstazPublic(data) {
+      return data.keys().hasAll(['name', 'isActive', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['name', 'isActive', 'linkedUid', 'createdAt', 'updatedAt'])
+        && isValidString(data.name, 2, 120)
+        && data.isActive is bool
+        && (!('linkedUid' in data) || isValidString(data.linkedUid, 0, 128))
+        && data.createdAt is timestamp
+        && isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidUstazPrivate(data) {
+      return data.keys().hasAll(['whatsapp', 'pinHash', 'pinSalt', 'updatedAt'])
+        && data.keys().hasOnly(['whatsapp', 'pinHash', 'pinSalt', 'updatedAt'])
+        && isValidString(data.whatsapp, 0, 30)
+        && isValidString(data.pinHash, 64, 128)
+        && data.pinHash.matches('^[a-f0-9]+$')
+        && isValidString(data.pinSalt, 16, 64)
+        && isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidStudent(data) {
+      return data.keys().hasAll(['name', 'gender', 'classId', 'className', 'isActive', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['name', 'gender', 'classId', 'className', 'isActive', 'createdAt', 'updatedAt'])
+        && isValidString(data.name, 2, 120)
+        && (data.gender == 'L' || data.gender == 'P')
+        && isValidId(data.classId)
+        && isValidString(data.className, 1, 60)
+        && data.isActive is bool
+        && data.createdAt is timestamp
+        && isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidAssignment(data) {
+      return data.keys().hasAll([
+          'ustazId', 'ustazName', 'classId', 'className', 'subjectId',
+          'subjectName', 'periodId', 'periodName', 'status',
+          'totalStudents', 'filledCount', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ustazId', 'ustazName', 'assignedUid', 'classId', 'className',
+          'subjectId', 'subjectName', 'periodId', 'periodName', 'status',
+          'totalStudents', 'filledCount', 'submittedAt', 'submittedById',
+          'submittedByName', 'unlockedReason', 'unlockedAt', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.ustazId)
+        && isValidString(data.ustazName, 2, 120)
+        && (!('assignedUid' in data) || isValidString(data.assignedUid, 0, 128))
+        && isValidId(data.classId)
+        && isValidString(data.className, 1, 60)
+        && isValidId(data.subjectId)
+        && isValidString(data.subjectName, 1, 100)
+        && isValidId(data.periodId)
+        && isValidString(data.periodName, 2, 120)
+        && (data.status == 'belum_mulai' || data.status == 'dalam_proses' || data.status == 'terkirim' || data.status == 'terkunci')
+        && data.totalStudents is number && data.totalStudents >= 0 && data.totalStudents <= 500
+        && data.filledCount is number && data.filledCount >= 0 && data.filledCount <= 500
+        && (!('submittedAt' in data) || isValidOptionalTimestampOrNull(data.submittedAt))
+        && (!('submittedById' in data) || data.submittedById == null || isValidString(data.submittedById, 0, 128))
+        && (!('submittedByName' in data) || data.submittedByName == null || isValidString(data.submittedByName, 0, 120))
+        && (!('unlockedReason' in data) || data.unlockedReason == null || isValidString(data.unlockedReason, 0, 300))
+        && (!('unlockedAt' in data) || isValidOptionalTimestampOrNull(data.unlockedAt))
+        && data.createdAt is timestamp
+        && isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidGrade(data) {
+      return data.keys().hasAll([
+          'studentId', 'studentName', 'assignmentId', 'classId', 'subjectId',
+          'periodId', 'ustazId', 'isDraft', 'isLocked', 'updatedAt',
+          'updatedById', 'updatedByName'
+        ])
+        && data.keys().hasOnly([
+          'studentId', 'studentName', 'assignmentId', 'classId', 'subjectId',
+          'periodId', 'ustazId', 'assignedUid', 'score', 'isDraft', 'isLocked',
+          'updatedAt', 'updatedById', 'updatedByName'
+        ])
+        && isValidId(data.studentId)
+        && isValidString(data.studentName, 2, 120)
+        && isValidId(data.assignmentId)
+        && isValidId(data.classId)
+        && isValidId(data.subjectId)
+        && isValidId(data.periodId)
+        && isValidId(data.ustazId)
+        && (!('assignedUid' in data) || isValidString(data.assignedUid, 0, 128))
+        && (!('score' in data) || data.score == null || (data.score is number && data.score >= 0 && data.score <= 100))
+        && data.isDraft is bool
+        && data.isLocked is bool
+        && isValidTimestamp(data.updatedAt)
+        && isValidString(data.updatedById, 1, 128)
+        && isValidString(data.updatedByName, 1, 120);
+    }
+
+    function isValidGradeAuditLog(data) {
+      return data.keys().hasAll([
+          'action', 'assignmentId', 'className', 'subjectName', 'periodName',
+          'changedById', 'changedByName', 'changedByRole', 'reason', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'action', 'assignmentId', 'studentId', 'studentName',
+          'className', 'subjectName', 'periodName', 'oldScore', 'newScore',
+          'changedById', 'changedByName', 'changedByRole', 'reason', 'createdAt'
+        ])
+        && (data.action == 'submit' || data.action == 'unlock' || data.action == 'score_edit' || data.action == 'admin_override')
+        && isValidId(data.assignmentId)
+        && (!('studentId' in data) || data.studentId == null || isValidString(data.studentId, 0, 128))
+        && (!('studentName' in data) || data.studentName == null || isValidString(data.studentName, 0, 120))
+        && isValidString(data.className, 1, 60)
+        && isValidString(data.subjectName, 1, 100)
+        && isValidString(data.periodName, 2, 120)
+        && (!('oldScore' in data) || data.oldScore == null || (data.oldScore is number && data.oldScore >= 0 && data.oldScore <= 100))
+        && (!('newScore' in data) || data.newScore == null || (data.newScore is number && data.newScore >= 0 && data.newScore <= 100))
+        && isValidString(data.changedById, 1, 128)
+        && isValidString(data.changedByName, 1, 120)
+        && (data.changedByRole == 'admin' || data.changedByRole == 'ustaz')
+        && isValidString(data.reason, 1, 300)
+        && isValidTimestamp(data.createdAt);
+    }
+
+    // ==================== COLLECTION MATCH RULES ====================
+    match /test/connection {
+      allow get: if true;
+    }
+
+    match /settings/{settingId} {
+      allow get: if isValidId(settingId) && (settingId == 'public' || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isValidId(settingId) && isAdmin() && isValidSettings(incoming());
+      allow update: if isValidId(settingId) && isAdmin() && isValidSettings(incoming());
+      allow delete: if false;
+    }
+
+    match /admin_security/{docId} {
+      allow get, list: if isAdmin();
+      allow create, update: if isValidId(docId) && isAdmin() && isValidAdminSecurity(incoming());
+      allow delete: if false;
+    }
+
+    match /admins/{uid} {
+      allow get: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isValidId(uid) && isAdmin() && isValidAdminUser(incoming()) && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isValidId(uid) && isAdmin() && uid != request.auth.uid;
+    }
+
+    match /periods/{periodId} {
+      allow get: if isValidId(periodId) && isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isValidId(periodId) && isAdmin() && isValidPeriod(incoming()) && incoming().createdAt == request.time;
+      allow update: if isValidId(periodId) && isAdmin() && isValidPeriod(incoming()) && incoming().createdAt == existing().createdAt;
+      allow delete: if isValidId(periodId) && isAdmin();
+    }
+
+    match /classes/{classId} {
+      allow get: if isValidId(classId) && isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isValidId(classId) && isAdmin() && isValidClassRoom(incoming()) && incoming().createdAt == request.time;
+      allow update: if isValidId(classId) && isAdmin() && isValidClassRoom(incoming()) && incoming().createdAt == existing().createdAt;
+      allow delete: if isValidId(classId) && isAdmin();
+    }
+
+    match /subjects/{subjectId} {
+      allow get: if isValidId(subjectId) && isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isValidId(subjectId) && isAdmin() && isValidSubject(incoming()) && incoming().createdAt == request.time;
+      allow update: if isValidId(subjectId) && isAdmin() && isValidSubject(incoming()) && incoming().createdAt == existing().createdAt;
+      allow delete: if isValidId(subjectId) && isAdmin();
+    }
+
+    match /ustaz_public/{ustazId} {
+      allow get: if isValidId(ustazId) && isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isValidId(ustazId) && isAdmin() && isValidUstazPublic(incoming()) && incoming().createdAt == request.time;
+      allow update: if isValidId(ustazId) && isAdmin() && isValidUstazPublic(incoming()) && incoming().createdAt == existing().createdAt;
+      allow delete: if isValidId(ustazId) && isAdmin();
+    }
+
+    match /ustaz_private/{ustazId} {
+      allow get: if isValidId(ustazId) && isAdmin();
+      allow list: if isAdmin();
+      allow create, update: if isValidId(ustazId) && isAdmin() && isValidUstazPrivate(incoming());
+      allow delete: if isValidId(ustazId) && isAdmin();
+    }
+
+    match /students/{studentId} {
+      allow get: if isValidId(studentId) && isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isValidId(studentId) && isAdmin() && isValidStudent(incoming()) && incoming().createdAt == request.time;
+      allow update: if isValidId(studentId) && isAdmin() && isValidStudent(incoming()) && incoming().createdAt == existing().createdAt;
+      allow delete: if isValidId(studentId) && isAdmin();
+    }
+
+    match /assignments/{assignmentId} {
+      allow get: if isValidId(assignmentId) && isSignedIn() && (isAdmin() || existing().assignedUid == request.auth.uid);
+      allow list: if isSignedIn() && (isBootstrappedAdmin() || resource.data.assignedUid == request.auth.uid);
+      allow create: if isValidId(assignmentId) && isAdmin() && isValidAssignment(incoming()) && incoming().createdAt == request.time;
+      allow update: if isValidId(assignmentId) && isSignedIn() && isValidAssignment(incoming()) && incoming().createdAt == existing().createdAt && (
+        isAdmin() ||
+        (
+          existing().assignedUid == request.auth.uid &&
+          existing().status != 'terkunci' &&
+          existing().status != 'terkirim' &&
+          incoming().ustazId == existing().ustazId &&
+          incoming().classId == existing().classId &&
+          incoming().subjectId == existing().subjectId &&
+          incoming().periodId == existing().periodId &&
+          incoming().assignedUid == existing().assignedUid &&
+          (
+            (
+              incoming().status == 'dalam_proses' &&
+              incoming().diff(existing()).affectedKeys().hasOnly(['status', 'filledCount', 'updatedAt'])
+            ) ||
+            (
+              incoming().status == 'terkunci' &&
+              incoming().filledCount == incoming().totalStudents &&
+              incoming().totalStudents > 0 &&
+              incoming().submittedById == request.auth.uid &&
+              incoming().submittedAt == request.time &&
+              incoming().diff(existing()).affectedKeys().hasOnly([
+                'status', 'filledCount', 'submittedAt', 'submittedById', 'submittedByName', 'updatedAt'
+              ])
+            )
+          )
+        )
+      );
+      allow delete: if isValidId(assignmentId) && isAdmin();
+
+      match /grades/{studentId} {
+        allow get: if isValidId(assignmentId) && isValidId(studentId) && isSignedIn() && (
+          isAdmin() ||
+          get(/databases/$(database)/documents/assignments/$(assignmentId)).data.assignedUid == request.auth.uid
+        );
+        allow list: if isSignedIn() && (
+          isBootstrappedAdmin() ||
+          resource.data.assignedUid == request.auth.uid
+        );
+        allow create: if isValidId(assignmentId) && isValidId(studentId) && isSignedIn() && isValidGrade(incoming()) && (
+          isAdmin() ||
+          (
+            get(/databases/$(database)/documents/assignments/$(assignmentId)).data.assignedUid == request.auth.uid &&
+            get(/databases/$(database)/documents/assignments/$(assignmentId)).data.status != 'terkunci' &&
+            get(/databases/$(database)/documents/assignments/$(assignmentId)).data.status != 'terkirim' &&
+            incoming().assignmentId == assignmentId &&
+            incoming().studentId == studentId &&
+            incoming().updatedById == request.auth.uid
+          )
+        );
+        allow update: if isValidId(assignmentId) && isValidId(studentId) && isSignedIn() && isValidGrade(incoming()) && (
+          isAdmin() ||
+          (
+            get(/databases/$(database)/documents/assignments/$(assignmentId)).data.assignedUid == request.auth.uid &&
+            get(/databases/$(database)/documents/assignments/$(assignmentId)).data.status != 'terkunci' &&
+            get(/databases/$(database)/documents/assignments/$(assignmentId)).data.status != 'terkirim' &&
+            existing().isLocked == false &&
+            incoming().assignmentId == existing().assignmentId &&
+            incoming().studentId == existing().studentId &&
+            incoming().updatedById == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['score', 'isDraft', 'isLocked', 'updatedAt', 'updatedById', 'updatedByName'])
+          )
+        );
+        allow delete: if isValidId(assignmentId) && isValidId(studentId) && isAdmin();
+      }
+    }
+
+    match /grade_audit_logs/{logId} {
+      allow get, list: if isAdmin();
+      allow create: if isValidId(logId) && isSignedIn() && isValidGradeAuditLog(incoming()) && (
+        isAdmin() || incoming().changedById == request.auth.uid
+      );
+      allow update, delete: if false;
+    }
+  }
+}

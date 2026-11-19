@@ -1,0 +1,251 @@
+{
+  "entities": {
+    "Settings": {
+      "title": "Settings",
+      "description": "Konfigurasi publik identitas madrasah, kop laporan, kepala madrasah, dan tahun pelajaran aktif.",
+      "type": "object",
+      "properties": {
+        "schoolName": { "type": "string", "minLength": 2, "maxLength": 150 },
+        "address": { "type": "string", "maxLength": 300 },
+        "logoUrl": { "type": "string", "maxLength": 2000 },
+        "reportHeader": { "type": "string", "maxLength": 400 },
+        "headmasterName": { "type": "string", "maxLength": 120 },
+        "headmasterNip": { "type": "string", "maxLength": 50 },
+        "academicYear": { "type": "string", "maxLength": 20, "pattern": "^[0-9]{4}/[0-9]{4}$" },
+        "semester": { "type": "string", "enum": ["Ganjil", "Genap"] },
+        "activePeriodId": { "type": "string", "maxLength": 128 },
+        "allowUstazReopenRequest": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["schoolName", "academicYear", "semester", "updatedAt"]
+    },
+    "AdminSecurity": {
+      "title": "AdminSecurity",
+      "description": "Hash password administrator terenkripsi (PBKDF2/SHA-256 salted) tanpa menyimpan password mentah.",
+      "type": "object",
+      "properties": {
+        "passwordHash": { "type": "string", "minLength": 64, "maxLength": 128, "pattern": "^[a-f0-9]+$" },
+        "passwordSalt": { "type": "string", "minLength": 16, "maxLength": 64 },
+        "mustChangePassword": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["passwordHash", "passwordSalt", "mustChangePassword", "updatedAt"]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Daftar UID administrator terverifikasi.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "maxLength": 200 },
+        "name": { "type": "string", "maxLength": 120 },
+        "role": { "type": "string", "enum": ["admin"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "name", "role", "createdAt"]
+    },
+    "Period": {
+      "title": "Period",
+      "description": "Periode penilaian semester dan batas tanggal pengisian nilai.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "academicYear": { "type": "string", "maxLength": 20, "pattern": "^[0-9]{4}/[0-9]{4}$" },
+        "semester": { "type": "string", "enum": ["Ganjil", "Genap"] },
+        "startDate": { "type": "string", "maxLength": 20, "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "endDate": { "type": "string", "maxLength": 20, "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "isActive": { "type": "boolean" },
+        "allowReopen": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "academicYear", "semester", "startDate", "endDate", "isActive", "allowReopen", "createdAt", "updatedAt"]
+    },
+    "ClassRoom": {
+      "title": "ClassRoom",
+      "description": "Data kelas Madrasah Diniyah.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "level": { "type": "string", "maxLength": 40 },
+        "orderIndex": { "type": "number" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "level", "orderIndex", "isActive", "createdAt", "updatedAt"]
+    },
+    "Subject": {
+      "title": "Subject",
+      "description": "Data mata pelajaran dan relasi kelas yang mempelajarinya.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "classIds": { "type": "array" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "classIds", "isActive", "createdAt", "updatedAt"]
+    },
+    "UstazPublic": {
+      "title": "UstazPublic",
+      "description": "Profil publik non-PII ustaz untuk portal pemilihan nama ustaz.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "isActive": { "type": "boolean" },
+        "linkedUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "isActive", "createdAt", "updatedAt"]
+    },
+    "UstazPrivate": {
+      "title": "UstazPrivate",
+      "description": "Data sensitif PII (WhatsApp) dan hash PIN akses ustaz.",
+      "type": "object",
+      "properties": {
+        "whatsapp": { "type": "string", "maxLength": 30 },
+        "pinHash": { "type": "string", "minLength": 64, "maxLength": 128, "pattern": "^[a-f0-9]+$" },
+        "pinSalt": { "type": "string", "minLength": 16, "maxLength": 64 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["whatsapp", "pinHash", "pinSalt", "updatedAt"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "Data santri terdaftar pada kelas Madrasah Diniyah.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "gender": { "type": "string", "enum": ["L", "P"] },
+        "classId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "className": { "type": "string", "maxLength": 60 },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "gender", "classId", "className", "isActive", "createdAt", "updatedAt"]
+    },
+    "Assignment": {
+      "title": "Assignment",
+      "description": "Pemetaan tugas penilaian unik per kombinasi periode, kelas, dan mata pelajaran.",
+      "type": "object",
+      "properties": {
+        "ustazId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ustazName": { "type": "string", "maxLength": 120 },
+        "assignedUid": { "type": "string", "maxLength": 128 },
+        "classId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "className": { "type": "string", "maxLength": 60 },
+        "subjectId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "subjectName": { "type": "string", "maxLength": 100 },
+        "periodId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "periodName": { "type": "string", "maxLength": 120 },
+        "status": { "type": "string", "enum": ["belum_mulai", "dalam_proses", "terkirim", "terkunci"] },
+        "totalStudents": { "type": "number" },
+        "filledCount": { "type": "number" },
+        "submittedAt": { "type": "string", "format": "date-time" },
+        "submittedById": { "type": "string", "maxLength": 128 },
+        "submittedByName": { "type": "string", "maxLength": 120 },
+        "unlockedReason": { "type": "string", "maxLength": 300 },
+        "unlockedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ustazId", "ustazName", "classId", "className", "subjectId", "subjectName", "periodId", "periodName", "status", "totalStudents", "filledCount", "createdAt", "updatedAt"]
+    },
+    "Grade": {
+      "title": "Grade",
+      "description": "Nilai santri per tugas penilaian, mendukung draft otomatis dan penguncian final.",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentName": { "type": "string", "maxLength": 120 },
+        "assignmentId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "classId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "subjectId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "periodId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ustazId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "score": { "type": "number" },
+        "isDraft": { "type": "boolean" },
+        "isLocked": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedById": { "type": "string", "maxLength": 128 },
+        "updatedByName": { "type": "string", "maxLength": 120 }
+      },
+      "required": ["studentId", "studentName", "assignmentId", "classId", "subjectId", "periodId", "ustazId", "isDraft", "isLocked", "updatedAt", "updatedById", "updatedByName"]
+    },
+    "GradeAuditLog": {
+      "title": "GradeAuditLog",
+      "description": "Riwayat audit permanen untuk pengiriman nilai, pembukaan kunci tugas, dan perubahan nilai.",
+      "type": "object",
+      "properties": {
+        "action": { "type": "string", "enum": ["submit", "unlock", "score_edit", "admin_override"] },
+        "assignmentId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentId": { "type": "string", "maxLength": 128 },
+        "studentName": { "type": "string", "maxLength": 120 },
+        "className": { "type": "string", "maxLength": 60 },
+        "subjectName": { "type": "string", "maxLength": 100 },
+        "periodName": { "type": "string", "maxLength": 120 },
+        "oldScore": { "type": "number" },
+        "newScore": { "type": "number" },
+        "changedById": { "type": "string", "maxLength": 128 },
+        "changedByName": { "type": "string", "maxLength": 120 },
+        "changedByRole": { "type": "string", "enum": ["admin", "ustaz"] },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["action", "assignmentId", "className", "subjectName", "periodName", "changedById", "changedByName", "changedByRole", "reason", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/Settings" },
+      "description": "Konfigurasi publik madrasah dan kop laporan."
+    },
+    "/admin_security/{docId}": {
+      "schema": { "$ref": "#/entities/AdminSecurity" },
+      "description": "Hash kredensial admin yang hanya boleh diakses oleh admin terverifikasi."
+    },
+    "/admins/{uid}": {
+      "schema": { "$ref": "#/entities/AdminUser" },
+      "description": "Dokumen peran admin per Firebase Auth UID."
+    },
+    "/periods/{periodId}": {
+      "schema": { "$ref": "#/entities/Period" },
+      "description": "Periode penilaian akademik."
+    },
+    "/classes/{classId}": {
+      "schema": { "$ref": "#/entities/ClassRoom" },
+      "description": "Daftar kelas madrasah."
+    },
+    "/subjects/{subjectId}": {
+      "schema": { "$ref": "#/entities/Subject" },
+      "description": "Mata pelajaran dan daftar kelas terkait."
+    },
+    "/ustaz_public/{ustazId}": {
+      "schema": { "$ref": "#/entities/UstazPublic" },
+      "description": "Direktori nama ustaz non-PII untuk portal."
+    },
+    "/ustaz_private/{ustazId}": {
+      "schema": { "$ref": "#/entities/UstazPrivate" },
+      "description": "PII WhatsApp dan hash PIN akses ustaz."
+    },
+    "/students/{studentId}": {
+      "schema": { "$ref": "#/entities/Student" },
+      "description": "Data santri per kelas."
+    },
+    "/assignments/{assignmentId}": {
+      "schema": { "$ref": "#/entities/Assignment" },
+      "description": "Pemetaan tugas ustaz per kelas, mata pelajaran, dan periode."
+    },
+    "/assignments/{assignmentId}/grades/{studentId}": {
+      "schema": { "$ref": "#/entities/Grade" },
+      "description": "Subkoleksi nilai santri di bawah tugas terkait."
+    },
+    "/grade_audit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/GradeAuditLog" },
+      "description": "Log audit permanen (append-only) perubahan dan pembukaan kunci nilai."
+    }
+  }
+}
